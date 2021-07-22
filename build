@@ -1,0 +1,20 @@
+#!/bin/sh
+
+BUILDTYPE=RELWITHDEBINFO
+if [ "$1" = "debug" ] ; then 
+    BUILDTYPE=DEBUG
+fi
+if [ "$1" = "nodebug" ] ; then
+    BUILDTYPE=RELEASE
+fi
+
+NPROC=`which nproc`
+if [ "$NPROC" = "" ] ; then
+	PROCS=2
+else
+	PROCS=`$NPROC`
+fi
+	
+cmake -DCMAKE_BUILD_TYPE=$BUILDTYPE .
+echo "Building in $PROCS thread(s)"
+make all -j$PROCS

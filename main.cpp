@@ -15,7 +15,7 @@ static std::filesystem::path extend_filename(const std::string &fname, const std
 int main(int argc, char **argv) {
 
 	if (argc < 4) {
-		std::cerr << "Needs arguments: " << argv[0] << "<type> <input> <output>";
+		std::cerr << "Needs arguments: " << argv[0] << " <type> <input> <output>";
 		std::cerr << std::endl;
 		std::cerr << "type=script    build script only, no other files are created" << std::endl
 				  << "type=html      build only html, no other files are created" << std::endl
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
 	auto cwd = std::filesystem::current_path();
 	auto infile = extend_filename(input, cwd);
 	auto outfile = extend_filename(output, cwd);
-	auto cache = extend_filename(".cache", cwd);
+	auto cache = extend_filename(".cache", outfile.parent_path());
 
 
 	try {

@@ -106,7 +106,7 @@ public:
 
 	struct ExitStatus {
 		Status st;
-		int code;
+		int code = 0;
 	};
 
 	ExitStatus getExitStatus() const {

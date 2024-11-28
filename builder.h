@@ -42,7 +42,7 @@ public:
 
 
 	using Resource = std::filesystem::path;
-;	using ResourceList = std::vector<Resource>;
+	using ResourceList = std::vector<Resource>;
 	using ContainerType = std::string;
 
 
@@ -57,21 +57,6 @@ public:
 
 
 protected:
-
-	class VLQ_state {
-	public:
-		std::string res;
-
-		void add_line();
-		void map(int out_col, int in_line,int in_col , int file_index);
-
-	protected:
-		int last_out_col = 0;
-		int last_in_line = 0;
-		int last_in_col = 0;
-		int last_file_index = 0;
-		bool sep = false;
-	};
 
 
 	std::filesystem::path cachePath;
@@ -100,11 +85,10 @@ protected:
 	static void insertFile(std::ostream &out, const std::filesystem::path &rs);
 	template<typename StyleFN, typename ScriptFN>
 	void buildPage(std::ostream &out, StyleFN &&stylefn, ScriptFN &&scriptfn);
-	std::string buildScript( const std::filesystem::path &nsf, std::ostream &out); ///<returns source map mapping
+	void buildScript( const std::filesystem::path &nsf, std::ostream &out); ///<returns source map mapping
 	void buildStyle(std::ostream &out);
 
-	void insertScript(std::ostream &out, const std::filesystem::path &rs, int script_index, VLQ_state &st);
-	void buildSourceMap(std::ostream &out, const std::filesystem::path &outfile, const std::filesystem::path &nss, const std::string &mapping);
+	void insertScript(std::ostream &out, const std::filesystem::path &rs);
 
 };
 

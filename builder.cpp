@@ -172,16 +172,6 @@ void Builder::build(const std::filesystem::path &out, BuildType bt) {
 			buildPage(fout, [&]{linkStyle(fout,out,stylefile);}, [&]{linkScript(fout, out,scriptfile);});
 			checkFile(fout, pagefile);
 		}{
-			std::filesystem::path srcmap = scriptfile;
-			srcmap.replace_extension(".map");
-			std::ofstream fout(scriptfile, std::ios::out| std::ios::trunc);
-			std::string mapping = buildScript(nsset_file, fout);
-			fout << "//# sourceMappingURL=" << srcmap.filename().string() << std::endl;
-			checkFile(fout, scriptfile);
-			std::ofstream fmap(srcmap, std::ios::out| std::ios::trunc);
-			buildSourceMap(fmap, scriptfile, nsset_file, mapping);
-			checkFile(fmap, srcmap);
-		}{
 			std::ofstream fout(stylefile, std::ios::out| std::ios::trunc);
 			buildStyle(fout);
 			checkFile(fout, stylefile);
@@ -218,8 +208,7 @@ void Builder::build(const std::filesystem::path &out, BuildType bt) {
 }
 
 std::filesystem::path Builder::createNSSet(const std::filesystem::path &out_name) const {
-	auto p = make_cache_file(out_name.string());
-	p.replace_extension(".js");
+	auto p = out_name.parent_path()/(out_name.stem().string()+".nsset.js");
 	std::filesystem::create_directories(p.parent_path());
 	std::ofstream out(p, std::ios::out| std::ios::trunc);
 	out << "\"use strict\";" << std::endl;
@@ -336,174 +325,41 @@ void Builder::insertFile(std::ostream &out, const std::filesystem::path &rs) {
 	if (in.bad()) throw std::runtime_error(rs.string() + ": failed to read file");
 }
 
-std::string Builder::buildScript(const std::filesystem::path &nsf, std::ostream &out) {
-	VLQ_state st;
-	int scridx = 0;
+void Builder::buildScript(const std::filesystem::path &nsf, std::ostream &out) {
 
-	insertScript(out, nsf, scridx++, st);
+	insertScript(out, nsf);
 	for (const Resource &rs: resources[cont_script]) {
 		if (modules.find(rs) != modules.end()) {
 			out << "(function(){" << std::endl;
-			st.add_line();
-			insertScript(out, rs, scridx++, st);
+			insertScript(out, rs);
 			out << "})();";
-
 		} else {
-			insertScript(out, rs, scridx++, st);
+			insertScript(out, rs);
 		}
 	}
-	return st.res;
 }
 
 Builder::Builder(const std::filesystem::path &cachePath):cachePath(cachePath) {
 }
 
 void Builder::buildStyle(std::ostream &out) {
-	VLQ_state st;
 	for (const Resource &rs: resources[cont_style]) {
-		insertScript(out, rs, 0, st);
+		insertScript(out, rs);
 		out << std::endl;
 	}
 }
 
-static const char base64[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-static void vlq_append(std::string &mapping, int x) {
-	if (x < 0) {
-		x = (std::abs(x) << 1) | 1;
-	} else {
-		x = (x << 1);
-	}
-	while (x >= 32) {
-		mapping.push_back(base64[(x & 0x1F) | 0x20]);
-		x = x >> 5;
-	}
-	mapping.push_back(base64[(x & 0x1F) ]);
-}
-
-
-void Builder::VLQ_state::add_line() {
-	res.push_back(';');
-	last_out_col = 0;
-	sep = false;
-}
-
-void Builder::VLQ_state::map(int out_col, int in_line,int in_col , int file_index) {
-	if (sep) res.push_back(',');
-	sep = true;
-	vlq_append(res, out_col - last_out_col);
-	vlq_append(res, file_index - last_file_index);
-	vlq_append(res, in_line - last_in_line);
-	vlq_append(res, in_col - last_in_col);
-
-	last_out_col = out_col;
-	last_in_line = in_line;
-	last_in_col = in_col;
-	last_file_index = file_index;
-}
-
-
-void Builder::insertScript(std::ostream &out, const std::filesystem::path &rs, int script_index, VLQ_state &st) {
+void Builder::insertScript(std::ostream &out, const std::filesystem::path &rs) {
 	std::ifstream in(rs, std::ios::in);
-	int out_col = 0;
-	int in_line = 0;
-	int i = in.get();
-	st.map(out_col, in_line, 0, script_index);
-	int string = 0;
-	bool sp = false;
-	while (i != EOF) {
-		if (!string) {
-			if (i == '\n') {
-				out.put(' ');
-				out_col++;
-				in_line++;
-				st.map(out_col, in_line, 0, script_index);
-				sp = true;
-			} else if (i == '\\') {
-				out.put(i);
-				out_col++;
-				i = in.get();
-				if (i == '\n') {
-					st.add_line();
-					in_line++;
-					out_col = 0;
-				}
-				out.put(i);
-				out_col++;
-				sp = false;
-			} else if (i == '/') {
-				int j = in.get();
-				if (j == '/') {
-					while (j != '\n' && j != -1) j = in.get();
-				} else if (j == '*') {
-					j = in.get();
-					while (true) {
-//						std::cout.put(j);
-						if (j == '\n') {
-							in_line++;
-							j = in.get();
-						} else if (j == '*') {
-							j = in.get();
-							if (j == '/') break;
-						} else if (j == -1) {
-							break;
-						} else {
-							j = in.get();
-						}
-					}
-					i = in.get();
-//					std::cout << std::endl;
-					continue;
-				} else {
-					out.put(i);
-					out_col++;
-				}
-				in.putback(j);
-				sp = true;
-			} else if (i>=0 && i <= 32) {
-				if (!sp) {
-					out.put(' ');
-					out_col++;
-					sp = true;
-				}
-			} else {
-				if (i == '"' || i == '\'') {
-					string = i;
-//					std::cout.put(i);
-				}
-				out.put(i);
-				out_col++;
-				sp = false;
-			}
-		} else {
-//			std::cout.put(i);
-			if (i == '\\') {
-				out.put(i);
-				out_col++;
-				i = in.get();
-//				std::cout.put(i);
-			} else if (i == string) {
-				string = 0;
-//				std::cout << std::endl;
-			}
-			out.put(i);
-			out_col++;
-			sp = false;
-		}
-		i = in.get();
-
+	std::string ln;
+	while (!in.eof()) {
+	    std::getline(in, ln);
+	    std::string_view lnw(ln);
+	    while (!lnw.empty() && isspace(lnw.front())) lnw = lnw.substr(1);
+	    if (!lnw.empty() && lnw.substr(0,2) != "//") {
+	        out << lnw << std::endl;
+	    }
 	}
-	out << std::endl;
-	st.add_line();
+
 }
 
-void Builder::buildSourceMap(std::ostream &out,
-		const std::filesystem::path &outfile, const std::filesystem::path &nss,
-		const std::string &mapping) {
-	out << "{\"version\": 3, \"file\": " << outfile.filename() << ",\"sourceRoot\":\"\",\"sources\":[";
-	out << "\"" << createRelativePath(outfile, nss) <<"\"";
-	for (const Resource &rs: resources[cont_script]) {
-		out << ",\"" << createRelativePath(outfile, rs) << "\"";
-	}
-	out << "],\"names\":[],\"mappings\":\"" << mapping << "\"}";
-}

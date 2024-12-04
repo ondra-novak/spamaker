@@ -22,7 +22,9 @@ enum class BuildType {
 	///generate standard 3 files (html, style, code)
 	std_page,
 	///generate html, but link resources to the page (developer mode)0
-	develop_page
+	develop_page,
+	///develop page symlinked
+	develop_page_symlink
 };
 
 class Builder {
@@ -51,6 +53,7 @@ public:
 
 	void build(const std::filesystem::path &out, BuildType bt);
 
+    void create_dep_file(const std::filesystem::path &depfile, const std::filesystem::path &output);
 
 
 
@@ -89,6 +92,7 @@ protected:
 	void buildStyle(std::ostream &out);
 
 	void insertScript(std::ostream &out, const std::filesystem::path &rs);
+	void symlink_all_resources(const std::filesystem::path &pagefile);
 
 };
 

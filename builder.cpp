@@ -172,13 +172,23 @@ void Builder::build(const std::filesystem::path &out, BuildType bt) {
 			buildPage(fout, [&]{linkStyle(fout,out,stylefile);}, [&]{linkScript(fout, out,scriptfile);});
 			checkFile(fout, pagefile);
 		}{
+            std::filesystem::path srcmap = scriptfile;
+            srcmap.replace_extension(".map");
+            std::ofstream fout(scriptfile, std::ios::out| std::ios::trunc);
+            buildScript(nsset_file, fout);
+            checkFile(fout, scriptfile);
+        }{
 			std::ofstream fout(stylefile, std::ios::out| std::ios::trunc);
 			buildStyle(fout);
 			checkFile(fout, stylefile);
 		}
 		break;
 
+	case BuildType::develop_page_symlink:
 	case BuildType::develop_page: {
+	    if (bt == BuildType::develop_page_symlink) {
+	        symlink_all_resources(pagefile);
+	    }
 			std::ofstream fout(pagefile, std::ios::out| std::ios::trunc);
 			buildPage(fout, [&]{
 				for (const Resource &res: resources[cont_style]) {
@@ -194,6 +204,7 @@ void Builder::build(const std::filesystem::path &out, BuildType bt) {
 			}
 		break;
 	}
+
 
 	for (const Resource &res: resources[cont_image]) {
 		copyNewer(res, imgdir/res.filename());
@@ -363,3 +374,27 @@ void Builder::insertScript(std::ostream &out, const std::filesystem::path &rs) {
 
 }
 
+void Builder::create_dep_file(const std::filesystem::path &depfile, const std::filesystem::path &output) {
+    std::ofstream depf(depfile);
+    depf << createRelativePath(depfile, output) << ":";
+    for (const auto &rl: resources) {
+        for (const auto &r: rl) {
+            depf << " " << createRelativePath(depfile, r);
+        }
+    }
+    depf << std::endl;
+}
+
+void Builder::symlink_all_resources(const std::filesystem::path &pagefile) {
+    constexpr unsigned int cats[] = {cont_script, cont_style};
+    auto dir = pagefile.parent_path()/"sres";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    for (unsigned int x: cats) {
+        for (auto &src : resources[x]) {
+            auto trg = dir/src.filename();
+            std::filesystem::create_symlink(src, trg);
+            src = trg;
+        }
+    }
+}

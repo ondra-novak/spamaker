@@ -56,3 +56,23 @@ generate all three files (html, css, js)
 
 generate HTML file while other files (js and css) are linked to the source folder. This allows to continue development in Chrome by directly modifying files
 
+
+### • develsl
+
+generate HTML but create `sres` directory containing styles and scripts as symlinks
+
+
+## directives
+
+Directives are written to JS files as comments
+
+```
+//@directive
+```
+- `@require <script>` - link another script before current script. Circular referenes are allowed
+- `@html <file>` - append HTML fragment to final HTML file if this file is included
+- `@style <file>` - append CSS style to final style document if this file is included
+- `@template <file>` - append template HTML file. It is included as <template id="<name>" >
+- `@namespace <name>` - define namespace. It introduces namespace "<name>" to the script file. It also ensures that this script is wrapped into self contained
+module (not for devel type)
+

@@ -11,6 +11,7 @@
 #include "linux_spawn.h"
 #include "builder.h"
 
+#include <thread>
 void Builder::parse(const std::filesystem::path &fname) {
 
 
@@ -234,7 +235,16 @@ R"js(function loadTemplate(name){
 	var el = document.importNode(nd.content, true);
 	if (el.firstElementChild && !el.firstElementChild.nextElementSibling) return el.firstElementChild;
 	else return nd;
-})js";
+};
+
+function collectNamedElements(templnode){
+    const elements = templnode.querySelectorAll('[name],[data-name]');
+    return Array.prototype.reduce.call(elements, (acc,el)=>{
+        const key = el.getAttribute('name') || el.getAttribute('data-name');
+        acc[key] = el;
+        return acc;
+    },{});
+};)js";
 	}
 	return p;
 }
@@ -387,14 +397,36 @@ void Builder::create_dep_file(const std::filesystem::path &depfile, const std::f
 
 void Builder::symlink_all_resources(const std::filesystem::path &pagefile) {
     constexpr unsigned int cats[] = {cont_script, cont_style};
-    auto dir = pagefile.parent_path()/"sres";
-    std::filesystem::remove_all(dir);
-    std::filesystem::create_directories(dir);
+    auto srcdir = pagefile.parent_path();
+    auto trgdir = pagefile.parent_path()/"sources";
+    std::filesystem::remove(trgdir);
+    std::filesystem::path common = {};
+    for (unsigned int x: cats) {
+        for (auto src : resources[x]) {
+            src = src.parent_path();
+            if (common.empty()) common = src;
+            else {
+                auto it1 = common.begin();
+                auto it2 = src.begin();
+                auto e1 = common.end();
+                auto e2 = src.end();
+                while (it1 != e1 && it2 != e2 && *it1 == *it2) {
+                    ++it1;++it2;
+                }
+                auto d = std::distance(it1, e1);
+                while (d--) {
+                    common = common.parent_path();
+                }
+            }
+        }
+    }
+    std::cout << "Common folder: " << common << std::endl;
+    std::filesystem::create_symlink(common, trgdir);
     for (unsigned int x: cats) {
         for (auto &src : resources[x]) {
-            auto trg = dir/src.filename();
-            std::filesystem::create_symlink(src, trg);
-            src = trg;
+            auto r = createRelativePath(common, src);
+            src = trgdir / r;
+            std::cout << "Linked: " << src << std::endl;
         }
     }
 }

@@ -243,7 +243,7 @@ function collectNamedElements(templnode){
         const key = el.getAttribute('name') || el.getAttribute('data-name');
         acc[key] = el;
         return acc;
-    },{});
+    },{"$self":templnode});
 };)js";
 	}
 	return p;

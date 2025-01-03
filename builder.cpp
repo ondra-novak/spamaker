@@ -233,8 +233,14 @@ std::filesystem::path Builder::createNSSet(const std::filesystem::path &out_name
 R"js(function loadTemplate(name){
 	var nd = document.getElementById(name);
 	var el = document.importNode(nd.content, true);
-	if (el.firstElementChild && !el.firstElementChild.nextElementSibling) return el.firstElementChild;
-	else return nd;
+	if (el.firstElementChild && !el.firstElementChild.nextElementSibling) el = el.firstElementChild;
+	else return el;
+    el.hide = function() {this.parentNode.removeChild(this);};
+    el.show = function(parent) {
+        if (!parent) parent = document.body;
+        return parent.appendChild(this);
+    }
+    return el;
 };
 
 function collectNamedElements(templnode){
@@ -372,6 +378,11 @@ void Builder::buildStyle(std::ostream &out) {
 
 void Builder::insertScript(std::ostream &out, const std::filesystem::path &rs) {
 	std::ifstream in(rs, std::ios::in);
+    if (!in) {
+        std::cerr << "Failed to open:" << rs << std::endl;
+        return;
+    }
+
 	std::string ln;
 	while (!in.eof()) {
 	    std::getline(in, ln);
@@ -403,6 +414,7 @@ void Builder::symlink_all_resources(const std::filesystem::path &pagefile) {
     std::filesystem::path common = {};
     for (unsigned int x: cats) {
         for (auto src : resources[x]) {
+            if (!std::filesystem::exists(src)) break;
             src = src.parent_path();
             if (common.empty()) common = src;
             else {
@@ -424,6 +436,7 @@ void Builder::symlink_all_resources(const std::filesystem::path &pagefile) {
     std::filesystem::create_symlink(common, trgdir);
     for (unsigned int x: cats) {
         for (auto &src : resources[x]) {
+            if (!std::filesystem::exists(src)) break;
             auto r = createRelativePath(common, src);
             src = trgdir / r;
             std::cout << "Linked: " << src << std::endl;
